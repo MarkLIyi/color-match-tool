@@ -4,730 +4,195 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>图片颜色比对工作台</title>
-    <!-- 引入 Tailwind CSS CDN -->
+
     <script src="https://cdn.tailwindcss.com"></script>
+
     <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'primary': '#4f46e5',
-                        'secondary': '#10b981',
-                        'match-bg': '#f3f4f6',
-                        'match-border': '#e5e7eb',
-                    }
-                }
-            }
-        }
+        tailwind.config = { theme:{ extend:{ colors:{ primary:"#4f46e5", secondary:"#10b981" }}}};
     </script>
+
     <style>
-        /* 隐藏滚动条但允许滚动 */
-        .hide-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .hide-scrollbar {
-            -ms-overflow-style: none; /* IE and Edge */
-            scrollbar-width: none; /* Firefox */
-        }
-        /* 调整主内容区的上边距，因为它紧接在 header 之后 */
-        main {
-            padding-top: 1rem !important; 
-        }
+        .hide-scrollbar::-webkit-scrollbar { display:none; }
+        .hide-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
     </style>
 </head>
-<body class="bg-match-bg min-h-screen font-sans antialiased">
 
-    <!-- 顶栏：作为嵌入式页面的标题，显示当前比对的颜色 -->
-    <header class="bg-white shadow-sm p-3 sticky top-0 z-10 border-b border-primary/20">
-        <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <h1 class="text-xl font-bold text-gray-800">
-                当前记录待匹配颜色：
-                <span id="original-color-display" class="text-primary font-extrabold">加载中...</span>
-            </h1>
-            <div class="flex items-center space-x-4">
-                 <div id="progress-indicator" class="text-sm text-gray-600">
-                    请点击候选图片进行选择
-                </div>
-                <!-- 设置按钮 -->
-                <button id="settings-btn" title="API 配置"
-                    class="p-2 rounded-full text-gray-500 hover:bg-gray-100 hover:text-primary transition duration-150">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                </button>
-            </div>
-        </div>
-    </header>
+<body class="bg-gray-50 min-h-screen">
 
-    <main class="max-w-7xl mx-auto p-4 md:p-6">
-        
-        <!-- 候选集图片展示 (Candidate Pool) -->
-        <div>
-            <h2 class="text-xl font-semibold mb-4 text-gray-800">候选集图片（已按颜色去重）</h2>
-            <div id="candidate-pool" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 hide-scrollbar">
-                <p class="col-span-full text-center text-gray-500 p-8" id="candidate-loading">正在加载候选图片...</p>
-                <!-- 候选图片卡片将由 JS 渲染到此处 -->
-            </div>
-        </div>
-        
-        <!-- 操作区：浮动在底部，确保随时可用 -->
-        <div class="fixed bottom-0 left-0 right-0 bg-white p-4 shadow-2xl border-t z-20">
-            <div class="max-w-7xl mx-auto flex justify-between gap-4">
-                <div id="status-message" class="text-base font-medium flex items-center">请点击上方图片进行选择...</div>
-                <button id="confirm-match-btn" disabled
-                    class="py-3 px-8 bg-secondary text-white font-bold rounded-lg shadow-md hover:bg-emerald-600 disabled:opacity-50 transition duration-150 transform hover:scale-[1.02]">
-                    ✓ 确认匹配并传回明道云
-                </button>
-            </div>
-        </div>
-    </main>
-    
-    <!-- API 配置弹窗 Modal -->
-    <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4" onclick="if(event.target.id === 'settings-modal') closeSettingsModal()">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 transform transition-all duration-300 scale-100">
-            <h3 class="text-2xl font-bold mb-4 text-gray-800 border-b pb-2">API 接口配置</h3>
-            
-            <p class="text-sm text-gray-600 mb-4">
-                配置明道云开放平台 API Key、表单 ID 以及回传字段ID。
-            </p>
+<header class="bg-white shadow-sm p-4 sticky top-0 z-10">
+    <div class="max-w-5xl mx-auto flex justify-between">
+        <h1 class="text-xl font-bold">待匹配颜色：<span id="original-color" class="text-primary">加载中...</span></h1>
+        <button id="open-settings" class="p-2 rounded hover:bg-gray-100">⚙️ 设置</button>
+    </div>
+</header>
 
-            <!-- 明道云 API 基础配置 -->
-            <fieldset class="border border-gray-200 p-4 rounded-lg mb-6">
-                <legend class="text-base font-semibold text-primary px-1">明道云获取记录配置 (getRowByIdPost)</legend>
-                
-                <div class="mb-4">
-                    <label for="api-url-input" class="block text-sm font-medium text-gray-700 mb-1">
-                        获取记录接口 URL (POST)
-                    </label>
-                    <input type="url" id="api-url-input" 
-                           placeholder="例如: https://yourdomain.com/api/v2/open/worksheet/getRowByIdPost"
-                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm">
-                    <p class="text-xs text-gray-500 mt-1">使用明道云获取行记录详情接口。</p>
-                </div>
-                
-                <div class="grid grid-cols-2 gap-4 mb-4">
-                    <div>
-                        <label for="app-key-input" class="block text-sm font-medium text-gray-700 mb-1">AppKey</label>
-                        <input type="text" id="app-key-input" 
-                               placeholder="您的 AppKey"
-                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm">
-                    </div>
-                    <div>
-                        <label for="worksheet-id-input" class="block text-sm font-medium text-gray-700 mb-1">WorksheetId</label>
-                        <input type="text" id="worksheet-id-input" 
-                               placeholder="表单ID"
-                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm">
-                    </div>
-                </div>
+<main class="max-w-5xl mx-auto p-4">
+    <h2 class="text-lg font-semibold mb-3">候选颜色</h2>
 
-                <div class="mb-2">
-                    <label for="candidate-field-id-input" class="block text-sm font-medium text-gray-700 mb-1">
-                        候选集数据字段ID/别名
-                    </label>
-                    <input type="text" id="candidate-field-id-input" 
-                           placeholder="例如: candidate_list_json"
-                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm">
-                    <p class="text-xs text-gray-500 mt-1">存储了候选集 JSON 数组的明道云字段 ID。</p>
-                </div>
-            </fieldset>
+    <div id="candidate-box" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 hide-scrollbar">
+        <p id="loading" class="col-span-full text-center text-gray-500 py-6">正在加载候选颜色…</p>
+    </div>
+</main>
 
-            <!-- 明道云匹配结果回传配置 -->
-            <fieldset class="border border-gray-200 p-4 rounded-lg mb-6">
-                <legend class="text-base font-semibold text-primary px-1">明道云匹配结果回传配置 (editRowPost)</legend>
-                <div class="mb-4">
-                    <label for="update-api-url-input" class="block text-sm font-medium text-gray-700 mb-1">
-                        更新记录接口 URL (POST)
-                    </label>
-                    <input type="url" id="update-api-url-input" 
-                           placeholder="例如: https://yourdomain.com/api/v2/open/worksheet/editRowPost"
-                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm">
-                    <p class="text-xs text-gray-500 mt-1">使用明道云更新记录详情接口。</p>
-                </div>
-                
-                <div class="grid grid-cols-3 gap-4 mb-2">
-                    <div>
-                        <label for="matched-sku-field-id-input" class="block text-sm font-medium text-gray-700 mb-1">匹配SKU字段ID</label>
-                        <input type="text" id="matched-sku-field-id-input" 
-                               placeholder="SKU字段ID"
-                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm">
-                    </div>
-                    <div>
-                        <label for="matched-color-field-id-input" class="block text-sm font-medium text-gray-700 mb-1">匹配颜色字段ID</label>
-                        <input type="text" id="matched-color-field-id-input" 
-                               placeholder="颜色字段ID"
-                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm">
-                    </div>
-                    <div>
-                        <label for="matched-image-field-id-input" class="block text-sm font-medium text-gray-700 mb-1">匹配图片字段ID</label>
-                        <input type="text" id="matched-image-field-id-input" 
-                               placeholder="图片附件字段ID"
-                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm">
-                    </div>
-                </div>
-                <p class="text-xs text-gray-500 mt-1">
-                    填写明道云中用于存储匹配结果（SKU、颜色名、图片附件）的字段ID或别名。
-                </p>
-            </fieldset>
-            
-            <div class="flex justify-end space-x-3">
-                <button id="close-modal-btn" type="button" 
-                        class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition duration-150">
-                    取消
-                </button>
-                <button id="save-api-url-btn" type="button"
-                        class="px-4 py-2 bg-primary text-white font-semibold rounded-lg shadow-md hover:bg-indigo-600 transition duration-150">
-                    保存配置
-                </button>
-            </div>
-            <p id="save-status-message" class="mt-3 text-right text-xs text-secondary hidden">配置已保存！</p>
+<div class="fixed bottom-0 left-0 right-0 bg-white border-t shadow-md p-4">
+    <div class="max-w-5xl mx-auto flex justify-between">
+        <span id="status" class="text-gray-700">请选择一个颜色图片</span>
+        <button id="submit-btn" disabled class="bg-secondary text-white px-6 py-2 rounded-lg font-bold disabled:opacity-50">✓ 确认匹配</button>
+    </div>
+</div>
+
+<div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-lg">
+        <h3 class="text-xl font-bold mb-4">API 配置</h3>
+
+        <label class="block mb-2 text-sm">AppKey：
+            <input id="cfg-appKey" class="w-full border rounded p-2 mt-1"/>
+        </label>
+
+        <label class="block mb-2 text-sm">Sign（你自己生成）：
+            <input id="cfg-sign" class="w-full border rounded p-2 mt-1"/>
+        </label>
+
+        <label class="block mb-2 text-sm">WorksheetId：
+            <input id="cfg-wid" class="w-full border rounded p-2 mt-1"/>
+        </label>
+
+        <label class="block mb-2 text-sm">候选字段 ID：
+            <input id="cfg-candidate" class="w-full border rounded p-2 mt-1" placeholder="69044f51be2ffd8cd20d153e"/>
+        </label>
+
+        <label class="block mb-2 text-sm">回写颜色字段 ID：
+            <input id="cfg-colorField" class="w-full border rounded p-2 mt-1" placeholder="6901b59fbe2ffd8cd2ab5d73"/>
+        </label>
+
+        <label class="block mb-2 text-sm">获取接口 URL：
+            <input id="cfg-fetchUrl" class="w-full border rounded p-2 mt-1" placeholder="https://你的域名/api/v2/open/worksheet/getRowByIdPost"/>
+        </label>
+
+        <label class="block mb-4 text-sm">更新接口 URL：
+            <input id="cfg-updateUrl" class="w-full border rounded p-2 mt-1" placeholder="https://你的域名/api/v2/open/worksheet/editRowPost"/>
+        </label>
+
+        <div class="flex justify-end space-x-3">
+            <button id="close-settings" class="px-4 py-2 rounded bg-gray-100">取消</button>
+            <button id="save-settings" class="px-4 py-2 rounded bg-primary text-white">保存</button>
         </div>
     </div>
+</div>
+
+
+<script>
+const LS = key => localStorage.getItem(key) || "";
+
+function saveConfig(){
+    localStorage.setItem("appKey", cfg-appKey.value.trim());
+    localStorage.setItem("sign", cfg-sign.value.trim());
+    localStorage.setItem("worksheetId", cfg-wid.value.trim());
+    localStorage.setItem("candidateFieldId", cfg-candidate.value.trim());
+    localStorage.setItem("colorFieldId", cfg-colorField.value.trim());
+    localStorage.setItem("fetchUrl", cfg-fetchUrl.value.trim());
+    localStorage.setItem("updateUrl", cfg-updateUrl.value.trim());
+    alert("配置已保存");
+    closeSettings();
+}
+
+function loadConfigToUI(){
+    cfg-appKey.value = LS("appKey");
+    cfg-sign.value = LS("sign");
+    cfg-wid.value = LS("worksheetId");
+    cfg-candidate.value = LS("candidateFieldId");
+    cfg-colorField.value = LS("colorFieldId");
+    cfg-fetchUrl.value = LS("fetchUrl");
+    cfg-updateUrl.value = LS("updateUrl");
+}
+
+open-settings.onclick = ()=>{ settings-modal.classList.remove("hidden");settings-modal.classList.add("flex"); loadConfigToUI(); };
+close-settings.onclick = ()=>{ settings-modal.classList.add("hidden");settings-modal.classList.remove("flex"); };
+save-settings.onclick = saveConfig;
+
+function getRowIdFromUrl(){
+    const p=new URLSearchParams(location.search);
+    return p.get("rowId");
+}
+
+async function mdPost(url, body){
+    const r = await fetch(url,{method:"POST",headers:{ "Content-Type":"application/json"},body:JSON.stringify(body)});
+    return r.json();
+}
+
+let selectedColor=null;
+
+async function loadCandidate(rowId){
+    const result = await mdPost(LS("fetchUrl"),{
+        appKey:LS("appKey"), sign:LS("sign"), worksheetId:LS("worksheetId"),
+        rowId, getSystemControl:false
+    });
+
+    const loading=document.getElementById("loading");
+
+    if(!result.success){ loading.innerText="加载失败"; return; }
+
+    const row = result.data.rows[0];
+    const raw = row[LS("candidateFieldId")];
+    if(!raw){ loading.innerText="没有候选数据";return;}
+
+    let list=[];
+    try{ list=JSON.parse(raw); }catch{ loading.innerText="JSON格式错误"; return;}
+
+    const unique = new Map();
+    list.forEach(i=>{ if(!unique.has(i.color)) unique.set(i.color, i); });
+
+    renderCandidates([...unique.values()]);
+}
+
+function renderCandidates(list){
+    const box=document.getElementById("candidate-box");
+    box.innerHTML="";
+
+    list.forEach(item=>{
+        const d=document.createElement("div");
+        d.className="bg-white rounded shadow hover:shadow-lg cursor-pointer p-2 border";
+        d.onclick=()=> chooseColor(item.color,d);
+
+        d.innerHTML=`
+            <img src="${item.logoUrl}" class="w-full h-32 object-cover rounded">
+            <p class="text-center mt-2 text-sm font-bold">${item.color}</p>
+        `;
+
+        box.appendChild(d);
+    });
+
+    document.getElementById("loading")?.remove();
+}
+
+function chooseColor(color, el){
+    selectedColor = color;
+    document.querySelectorAll("#candidate-box > div").forEach(x=>x.classList.remove("border-secondary","border-4"));
+    el.classList.add("border-secondary","border-4");
+    status.innerText="已选择：" + color;
+    submit-btn.disabled=false;
+}
+
+async function updateColor(rowId){
+    const res = await mdPost(LS("updateUrl"),{
+        appKey:LS("appKey"), sign:LS("sign"), worksheetId:LS("worksheetId"),
+        rowId, triggerWorkflow:true,
+        controls:[{ controlId:LS("colorFieldId"), value:selectedColor }]
+    });
+
+    if(!res.success){ status.innerText="更新失败"; return; }
+    status.innerText="✓ 已更新：" + selectedColor;
+    submit-btn.disabled=true;
+}
+
+window.onload = async ()=>{
+    const rowId = getRowIdFromUrl();
+    if(!rowId){ alert("URL 缺少 rowId 参数"); return;}
+    original-color.innerText=rowId;
+    await loadCandidate(rowId);
+    submit-btn.onclick = ()=> updateColor(rowId);
+};
+</script>
 
-    <!-- 主应用逻辑 -->
-    <script>
-        // 常量定义
-        const MDCLOUD_FETCH_URL_KEY = 'mdcloud_fetch_url';
-        const MDCLOUD_APP_KEY = 'mdcloud_app_key';
-        const MDCLOUD_WORKSHEET_ID = 'mdcloud_worksheet_id';
-        const CANDIDATE_FIELD_ID_KEY = 'candidate_field_id';
-        // 新增：明道云更新 API 配置
-        const MDCLOUD_UPDATE_API_URL_KEY = 'mdcloud_update_api_url';
-        const MATCHED_SKU_FIELD_ID_KEY = 'matched_sku_field_id';
-        const MATCHED_COLOR_FIELD_ID_KEY = 'matched_color_field_id';
-        const MATCHED_IMAGE_FIELD_ID_KEY = 'matched_image_field_id';
-
-        // 默认值
-        const DEFAULT_FETCH_URL = 'https://yourdomain.com/api/v2/open/worksheet/getRowByIdPost'; 
-        const DEFAULT_CANDIDATE_FIELD_ID = 'candidate_list_json';
-        const DEFAULT_UPDATE_API_URL = 'https://yourdomain.com/api/v2/open/worksheet/editRowPost'; 
-
-        // 全局状态变量
-        let currentOriginalItem = null;
-        let selectedCandidate = null;
-        let isProcessing = false;
-        
-        // 明道云 API 配置 (获取数据)
-        let fetchApiUrl = ''; 
-        let mdAppKey = '';
-        let mdWorksheetId = '';
-        let mdCandidateFieldId = '';
-        
-        // 明道云 API 配置 (更新数据)
-        let mdUpdateApiUrl = ''; 
-        let matchedSkuFieldId = '';
-        let matchedColorFieldId = '';
-        let matchedImageFieldId = '';
-
-        const dom = {
-            candidatePool: document.getElementById('candidate-pool'),
-            confirmBtn: document.getElementById('confirm-match-btn'),
-            statusMessage: document.getElementById('status-message'),
-            originalColorDisplay: document.getElementById('original-color-display'),
-            candidateLoading: document.getElementById('candidate-loading'),
-            
-            // 设置弹窗 DOM 引用
-            settingsBtn: document.getElementById('settings-btn'),
-            settingsModal: document.getElementById('settings-modal'),
-            apiUrlInput: document.getElementById('api-url-input'),
-            appKeyInput: document.getElementById('app-key-input'),
-            worksheetIdInput: document.getElementById('worksheet-id-input'),
-            candidateFieldIdInput: document.getElementById('candidate-field-id-input'),
-            
-            // 新增更新配置 DOM 引用
-            updateApiUrlInput: document.getElementById('update-api-url-input'),
-            matchedSkuFieldIdInput: document.getElementById('matched-sku-field-id-input'),
-            matchedColorFieldIdInput: document.getElementById('matched-color-field-id-input'),
-            matchedImageFieldIdInput: document.getElementById('matched-image-field-id-input'),
-
-            saveApiUrlBtn: document.getElementById('save-api-url-btn'),
-            closeModalBtn: document.getElementById('close-modal-btn'),
-            saveStatusMessage: document.getElementById('save-status-message'),
-        };
-
-        // -------------------------------------------------------------
-        // ** 配置管理 **
-        // -------------------------------------------------------------
-        
-        /**
-         * 从 localStorage 读取配置项
-         */
-        function getConfig(key) {
-            return localStorage.getItem(key);
-        }
-
-        /**
-         * 将 API 配置保存到 localStorage
-         */
-        function saveApiUrl() {
-            // 明道云获取记录配置
-            const fetchUrl = dom.apiUrlInput.value.trim();
-            const appKey = dom.appKeyInput.value.trim();
-            const worksheetId = dom.worksheetIdInput.value.trim();
-            const candidateFieldId = dom.candidateFieldIdInput.value.trim();
-            
-            // 明道云更新记录配置 (新增)
-            const updateUrl = dom.updateApiUrlInput.value.trim();
-            const skuFieldId = dom.matchedSkuFieldIdInput.value.trim();
-            const colorFieldId = dom.matchedColorFieldIdInput.value.trim();
-            const imageFieldId = dom.matchedImageFieldIdInput.value.trim();
-
-
-            localStorage.setItem(MDCLOUD_FETCH_URL_KEY, fetchUrl || DEFAULT_FETCH_URL);
-            localStorage.setItem(MDCLOUD_APP_KEY, appKey);
-            localStorage.setItem(MDCLOUD_WORKSHEET_ID, worksheetId);
-            localStorage.setItem(CANDIDATE_FIELD_ID_KEY, candidateFieldId || DEFAULT_CANDIDATE_FIELD_ID);
-            
-            // 保存新的更新配置
-            localStorage.setItem(MDCLOUD_UPDATE_API_URL_KEY, updateUrl || DEFAULT_UPDATE_API_URL);
-            localStorage.setItem(MATCHED_SKU_FIELD_ID_KEY, skuFieldId);
-            localStorage.setItem(MATCHED_COLOR_FIELD_ID_KEY, colorFieldId);
-            localStorage.setItem(MATCHED_IMAGE_FIELD_ID_KEY, imageFieldId);
-
-
-            // 更新内存变量 (获取记录)
-            fetchApiUrl = fetchUrl || DEFAULT_FETCH_URL;
-            mdAppKey = appKey;
-            mdWorksheetId = worksheetId;
-            mdCandidateFieldId = candidateFieldId || DEFAULT_CANDIDATE_FIELD_ID;
-            
-            // 更新内存变量 (更新记录)
-            mdUpdateApiUrl = updateUrl || DEFAULT_UPDATE_API_URL;
-            matchedSkuFieldId = skuFieldId;
-            matchedColorFieldId = colorFieldId;
-            matchedImageFieldId = imageFieldId;
-
-
-            dom.saveStatusMessage.textContent = '配置已成功保存！';
-            dom.saveStatusMessage.classList.remove('hidden', 'text-red-500');
-            dom.saveStatusMessage.classList.add('text-secondary');
-            
-            setTimeout(closeSettingsModal, 1500);
-        }
-
-        function openSettingsModal() {
-            // 填充输入框的当前值 (获取记录配置)
-            dom.apiUrlInput.value = getConfig(MDCLOUD_FETCH_URL_KEY) || DEFAULT_FETCH_URL;
-            dom.appKeyInput.value = getConfig(MDCLOUD_APP_KEY) || '';
-            dom.worksheetIdInput.value = getConfig(MDCLOUD_WORKSHEET_ID) || '';
-            dom.candidateFieldIdInput.value = getConfig(CANDIDATE_FIELD_ID_KEY) || DEFAULT_CANDIDATE_FIELD_ID;
-
-            // 填充输入框的当前值 (更新记录配置)
-            dom.updateApiUrlInput.value = getConfig(MDCLOUD_UPDATE_API_URL_KEY) || DEFAULT_UPDATE_API_URL;
-            dom.matchedSkuFieldIdInput.value = getConfig(MATCHED_SKU_FIELD_ID_KEY) || '';
-            dom.matchedColorFieldIdInput.value = getConfig(MATCHED_COLOR_FIELD_ID_KEY) || '';
-            dom.matchedImageFieldIdInput.value = getConfig(MATCHED_IMAGE_FIELD_ID_KEY) || '';
-
-
-            dom.settingsModal.classList.remove('hidden');
-            dom.saveStatusMessage.classList.add('hidden');
-        }
-
-        function closeSettingsModal() {
-            dom.settingsModal.classList.add('hidden');
-        }
-
-
-        // -------------------------------------------------------------
-        // ** API 对接区域 **
-        // -------------------------------------------------------------
-
-        /**
-         *
-         * 通过明道云 getRowByIdPost 接口获取记录，并解析候选集数据字段。
-         * @param {string} recordId 当前明道云记录ID (即 rowid)
-         * @returns {Promise<Array<Object>>} 候选集 JSON 数组
-         */
-        async function fetchCandidateData(recordId) {
-            
-            // 检查关键配置是否缺失
-            if (!mdAppKey || !mdWorksheetId) {
-                const msg = '错误: 缺少 AppKey 或 WorksheetId。请点击设置按钮进行配置。';
-                dom.candidateLoading.innerHTML = `<div class="text-red-600 font-bold">${msg}</div>`;
-                throw new Error(msg);
-            }
-            
-            const fullApiUrl = fetchApiUrl;
-
-            // 构造明道云 getRowByIdPost 所需的 payload
-            const payload = {
-                appKey: mdAppKey,
-                sign: 'SIGN_PLACEHOLDER', // ❗ 签名需要您在后端或前端根据明道云文档计算
-                worksheetId: mdWorksheetId,
-                rowid: recordId,
-                // 只获取指定的字段，有助于简化响应和提高性能
-                getSystemControl: false, 
-            };
-            
-            // 假设签名（Sign）已通过其他方式处理或不强制（不推荐在生产环境这样做）
-            if (payload.sign === 'SIGN_PLACEHOLDER') {
-                console.warn("警告: 明道云 API 的 'sign' 参数被设置为占位符。请确保在实际部署中，您已实现了正确的签名生成逻辑。");
-            }
-
-
-            try {
-                // --- ❗❗❗ 真实 Fetch 调用: POST 方法 ❗❗❗ ---
-                dom.candidateLoading.textContent = `正在通过明道云 API 请求记录详情... (接口: ${fullApiUrl})`;
-                
-                const response = await fetch(fullApiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                if (!response.ok) {
-                    throw new Error(`明道云 API 请求失败: HTTP Status ${response.status}`);
-                }
-                const result = await response.json();
-
-                if (result.success !== true || !result.data || !result.data.rows || result.data.rows.length === 0) {
-                    throw new Error(`明道云 API 返回失败或记录不存在。错误代码: ${result.error_code}`);
-                }
-                
-                // 提取包含候选数据的字段
-                const record = result.data.rows[0];
-                const candidateJsonString = record[mdCandidateFieldId]; // 通过字段 ID/别名获取值
-
-                if (!candidateJsonString) {
-                    throw new Error(`字段 "${mdCandidateFieldId}" 在记录中未找到或为空。请检查字段 ID 配置。`);
-                }
-
-                // 尝试解析 JSON 字符串为数组
-                const rawData = JSON.parse(candidateJsonString);
-                if (!Array.isArray(rawData)) {
-                    throw new Error(`字段 "${mdCandidateFieldId}" 的内容不是有效的 JSON 数组。`);
-                }
-                
-                return rawData;
-                
-            } catch (error) {
-                console.error("Error fetching Mingdaoyun data:", error);
-                // 在加载指示器中显示完整的错误信息
-                dom.candidateLoading.innerHTML = `
-                    <div class="text-red-600 font-bold">加载失败: ${error.message}</div>
-                    <div class="text-sm text-gray-500 mt-2">请检查 API 配置、签名、WorksheetId 或字段 ID。</div>
-                `;
-                return [];
-            }
-        }
-
-
-        // -------------------------------------------------------------
-        // ** 数据处理：去重逻辑 (根据颜色名去重，并保留第一个 URL) **
-        // -------------------------------------------------------------
-        
-        /**
-         * 根据颜色名对原始比对数据进行去重，并提取关键字段
-         */
-        function getUniqueCandidatesByColor(rawData) {
-            const uniqueCandidatesMap = new Map();
-            
-            if (!Array.isArray(rawData)) return [];
-
-            rawData.forEach(item => {
-                const colorName = item.color; // 颜色名
-                const imageUrl = item.logoUrl; // 图片 URL
-                
-                if (colorName && imageUrl) {
-                    // 如果 Map 中还没有这个颜色名，则添加它，实现去重
-                    if (!uniqueCandidatesMap.has(colorName)) {
-                        uniqueCandidatesMap.set(colorName, {
-                            // 使用 item.dwSkuId 作为 sku (货号)
-                            sku: item.dwSkuId || 'N/A', 
-                            color: colorName, // 颜色名 (用于显示)
-                            imageUrl: imageUrl, // 图片 URL (保留第一个)
-                            // 使用 colorName 作为唯一的 ID
-                            id: colorName 
-                        });
-                    }
-                }
-            });
-
-            return Array.from(uniqueCandidatesMap.values());
-        }
-
-
-        // -------------------------------------------------------------
-        // ** 页面渲染和事件处理 **
-        // -------------------------------------------------------------
-        
-        /**
-         * 从 URL 参数中获取当前记录信息
-         */
-        function getOriginalItemFromUrl() {
-            const urlParams = new URLSearchParams(window.location.search);
-            
-            // 明道云 URL 配置示例: 
-            // YOUR_URL.html?recordId={当前记录ID}&sku={原始货号}&color={原始颜色}&group={颜色组字段}
-            const item = {
-                sku: urlParams.get('sku') || 'N/A',
-                color: urlParams.get('color') || '未知颜色',
-                colorGroup: urlParams.get('group') || 'N/A',
-                mdcloudRecordId: urlParams.get('recordId') || null, // 必须获取到，作为 rowid
-            };
-            
-            return item;
-        }
-
-        /**
-         * 渲染当前原始商品信息 (简化为仅更新标题栏)
-         */
-        function renderSourceInfo(item) {
-            // 保持对顶栏标题的更新
-            dom.originalColorDisplay.textContent = item.color || 'N/A';
-        }
-
-        /**
-         * 渲染候选图片池
-         */
-        function renderCandidatePool(filteredCandidates) {
-            dom.candidatePool.innerHTML = '';
-            dom.candidatePool.classList.remove('justify-center');
-            
-            // 确保加载指示器被移除（如果有的话）
-            const loadingElement = document.getElementById('candidate-loading');
-            if (loadingElement) {
-                loadingElement.remove();
-            }
-
-            if (filteredCandidates.length === 0) {
-                dom.candidatePool.innerHTML = '<p class="col-span-full text-center text-gray-500 p-8">⚠️ 未找到匹配的候选图片。请检查颜色组配置或 API 返回数据。</p>';
-                dom.candidatePool.classList.add('justify-center');
-                return;
-            }
-
-            filteredCandidates.forEach(candidate => {
-                const isSelected = selectedCandidate && selectedCandidate.id === candidate.id;
-                const card = document.createElement('div');
-                card.id = `candidate-${candidate.id.replace(/\s/g, '-')}`; // 安全ID
-                card.className = `p-2 bg-white rounded-xl shadow-md border-4 cursor-pointer transition transform hover:scale-[1.02] active:scale-[0.98] ${isSelected ? 'border-secondary ring-4 ring-secondary/50' : 'border-match-border hover:border-primary/50'}`;
-                card.onclick = () => selectCandidate(candidate);
-                
-                card.innerHTML = `
-                    <div class="relative">
-                        <img src="${candidate.imageUrl}" onerror="this.src='https://placehold.co/200x250/AAAAAA/FFFFFF?text=图片缺失'" 
-                             alt="${candidate.color}" class="w-full h-auto object-cover rounded-lg">
-                    </div>
-                    <div class="mt-2 text-center">
-                        <p class="text-sm font-semibold truncate" title="${candidate.color}">${candidate.color}</p>
-                        <p class="text-xs text-gray-500">SKU: ${candidate.sku}</p>
-                    </div>
-                `;
-                dom.candidatePool.appendChild(card);
-            });
-        }
-
-
-        /**
-         * 处理候选图片卡片的点击选择事件
-         */
-        function selectCandidate(candidate) {
-            if (isProcessing) return;
-
-            // 清除之前的选中状态
-            if (selectedCandidate) {
-                document.getElementById(`candidate-${selectedCandidate.id.replace(/\s/g, '-')}`)?.classList.remove('border-secondary', 'ring-4', 'ring-secondary/50');
-                document.getElementById(`candidate-${selectedCandidate.id.replace(/\s/g, '-')}`)?.classList.add('border-match-border', 'hover:border-primary/50');
-            }
-
-            // 设置新的选中状态
-            selectedCandidate = candidate;
-            document.getElementById(`candidate-${selectedCandidate.id.replace(/\s/g, '-')}`)?.classList.add('border-secondary', 'ring-4', 'ring-secondary/50');
-            document.getElementById(`candidate-${selectedCandidate.id.replace(/\s/g, '-')}`)?.classList.remove('border-match-border', 'hover:border-primary/50');
-
-            dom.confirmBtn.disabled = false;
-            dom.statusMessage.textContent = `已选择: ${candidate.color}，点击下方按钮传回明道云。`;
-        }
-
-
-        /**
-         *
-         * 使用明道云 editRowPost 接口更新记录，并使用 window.parent.postMessage 通知父窗口。
-         */
-        async function confirmMatchAndPost() {
-            if (!selectedCandidate || isProcessing || !currentOriginalItem.mdcloudRecordId) return;
-            isProcessing = true;
-            dom.confirmBtn.textContent = '传输中...';
-            dom.confirmBtn.disabled = true;
-            dom.statusMessage.textContent = '正在准备匹配结果...';
-
-            // 1. 构造需要回传明道云的数据结构 (用于 postMessage)
-            const matchResult = {
-                mdcloudRecordId: currentOriginalItem.mdcloudRecordId, 
-                matchStatus: 'MATCHED',
-                matchedSku: selectedCandidate.sku,
-                matchedColor: selectedCandidate.color, 
-                matchedImageURL: selectedCandidate.imageUrl, 
-            };
-            
-            // 2. 构造明道云 editRowPost 的 controls 字段
-            dom.statusMessage.textContent = '正在构建明道云更新数据包...';
-
-            const controlsPayload = [];
-            
-            // a. 匹配 SKU
-            if (matchedSkuFieldId && matchResult.matchedSku) {
-                controlsPayload.push({
-                    controlId: matchedSkuFieldId,
-                    value: matchResult.matchedSku
-                });
-            }
-
-            // b. 匹配颜色
-            if (matchedColorFieldId && matchResult.matchedColor) {
-                controlsPayload.push({
-                    controlId: matchedColorFieldId,
-                    value: matchResult.matchedColor
-                });
-            }
-            
-            // c. 匹配图片附件
-            // 明道云附件字段要求的值是附件对象数组的 JSON 字符串
-            if (matchedImageFieldId && matchResult.matchedImageURL) {
-                // 明道云图片字段的值需要是 [{previewUrl: '...', name: '...'}] 格式
-                // 我们使用图片的 URL 作为 previewUrl，并从 URL 中提取文件名作为 name
-                const urlParts = matchResult.matchedImageURL.split('/');
-                const fileName = urlParts[urlParts.length - 1].split('?')[0]; // 提取文件名，去除查询参数
-
-                controlsPayload.push({
-                    controlId: matchedImageFieldId,
-                    // ❗ 附件字段要求是 JSON 字符串
-                    value: JSON.stringify([{
-                        "previewUrl": matchResult.matchedImageURL,
-                        "name": fileName
-                    }]) 
-                });
-            }
-
-            // 检查是否有要更新的字段
-            if (controlsPayload.length === 0) {
-                 dom.statusMessage.textContent = '⚠️ 警告：所有回传字段ID均未配置或匹配数据为空，请检查配置。';
-                 isProcessing = false;
-                 dom.confirmBtn.textContent = '未更新';
-                 dom.confirmBtn.disabled = false;
-                 return;
-            }
-
-            // 3.调用明道云 editRowPost API
-            
-            // 检查关键配置是否缺失
-            if (!mdUpdateApiUrl || !mdAppKey || !mdWorksheetId) {
-                const msg = '错误: 明道云更新 API 缺少 URL/AppKey/WorksheetId。请点击设置按钮进行配置。';
-                dom.statusMessage.innerHTML = `<div class="text-red-600 font-bold">${msg}</div>`;
-                isProcessing = false;
-                dom.confirmBtn.textContent = '配置错误';
-                dom.confirmBtn.disabled = false;
-                return;
-            }
-
-            const updatePayload = {
-                appKey: mdAppKey,
-                sign: 'SIGN_PLACEHOLDER', // ❗ 签名需要您在后端或前端根据明道云文档计算
-                worksheetId: mdWorksheetId,
-                rowid: matchResult.mdcloudRecordId,
-                controls: controlsPayload,
-                triggerWorkflow: true // 默认触发工作流
-            };
-            
-            dom.statusMessage.textContent = `正在通过明道云 API 更新记录...`;
-
-            try {
-                const response = await fetch(mdUpdateApiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updatePayload)
-                });
-
-                if (!response.ok) {
-                    throw new Error(`明道云更新 API 请求失败: HTTP Status ${response.status}`);
-                }
-                const result = await response.json();
-
-                if (result.success !== true) {
-                    throw new Error(`明道云更新 API 返回失败。错误代码: ${result.error_code}，消息: ${result.error_msg || '未知错误'}`);
-                }
-                
-                dom.statusMessage.textContent = `✅ 明道云记录更新成功！`;
-
-            } catch (error) {
-                console.error("Error calling Mingdaoyun Update API:", error);
-                dom.statusMessage.innerHTML = `
-                    <div class="text-red-600 font-bold">❌ 记录更新失败: ${error.message}</div>
-                    <div class="text-sm text-gray-500 mt-2">请检查 API 配置、签名或字段ID。</div>
-                `;
-                isProcessing = false;
-                dom.confirmBtn.textContent = '更新失败';
-                dom.confirmBtn.disabled = false;
-                return;
-            }
-            // --------------------------------------------------------
-
-            // 4. 通知明道云父窗口 (核心)
-            // 无论明道云记录更新是否成功，都会通知父窗口
-            window.parent.postMessage({
-                type: 'IMAGE_MATCH_RESULT', // 自定义消息类型，方便父窗口识别
-                payload: {...matchResult, apiUpdateSuccess: true} // 附加状态信息
-            }, '*'); 
-
-            // 传输成功反馈
-            setTimeout(() => {
-                isProcessing = false; // 解除锁定
-                dom.statusMessage.textContent = `✅ 匹配完成！数据已更新并传回明道云。`;
-                dom.confirmBtn.textContent = '已完成';
-                dom.confirmBtn.classList.remove('bg-secondary');
-                dom.confirmBtn.classList.add('bg-gray-400');
-            }, 500);
-        }
-        
-        /**
-         * 应用启动
-         */
-        async function initializeApp() {
-            // 0. 读取 API 配置 (获取记录)
-            fetchApiUrl = getConfig(MDCLOUD_FETCH_URL_KEY) || DEFAULT_FETCH_URL;
-            mdAppKey = getConfig(MDCLOUD_APP_KEY) || '';
-            mdWorksheetId = getConfig(MDCLOUD_WORKSHEET_ID) || '';
-            mdCandidateFieldId = getConfig(CANDIDATE_FIELD_ID_KEY) || DEFAULT_CANDIDATE_FIELD_ID;
-            
-            // 0. 读取 API 配置 (更新记录)
-            mdUpdateApiUrl = getConfig(MDCLOUD_UPDATE_API_URL_KEY) || DEFAULT_UPDATE_API_URL;
-            matchedSkuFieldId = getConfig(MATCHED_SKU_FIELD_ID_KEY) || '';
-            matchedColorFieldId = getConfig(MATCHED_COLOR_FIELD_ID_KEY) || '';
-            matchedImageFieldId = getConfig(MATCHED_IMAGE_FIELD_ID_KEY) || '';
-            
-            // 1. 获取当前待处理记录信息 (来自 URL)
-            currentOriginalItem = getOriginalItemFromUrl();
-
-            // 2. 渲染原始信息 (仅更新顶部标题)
-            renderSourceInfo(currentOriginalItem);
-
-            // 3. 绑定设置事件
-            dom.settingsBtn.onclick = openSettingsModal;
-            dom.saveApiUrlBtn.onclick = saveApiUrl;
-            dom.closeModalBtn.onclick = closeSettingsModal;
-
-            if (!currentOriginalItem.mdcloudRecordId) {
-                // 错误信息直接显示在加载指示器位置
-                dom.candidateLoading.textContent = '⛔ 错误：未能从 URL 中获取明道云记录ID (recordId)。请检查内嵌 URL 配置。';
-                return;
-            }
-            
-            // 4.调用明道云 API 获取数据
-            // 注意: 这里只传递 recordId，其他配置（AppKey/WorksheetId）已在全局读取
-            const rawData = await fetchCandidateData(currentOriginalItem.mdcloudRecordId);
-            
-            // 5. 数据去重和过滤
-            const uniqueCandidates = getUniqueCandidatesByColor(rawData);
-
-            // 6. 渲染候选池
-            renderCandidatePool(uniqueCandidates);
-            
-            // 7. 绑定确认匹配事件
-            dom.confirmBtn.onclick = confirmMatchAndPost;
-        }
-
-        window.onload = initializeApp;
-
-    </script>
 </body>
 </html>
