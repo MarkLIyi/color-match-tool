@@ -1,205 +1,218 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>图片颜色比对工作台</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>图片颜色比对工作台</title>
 
-    <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.tailwindcss.com"></script>
 
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: { primary: "#4f46e5", secondary: "#10b981" }
-                }
-            }
-        };
-    </script>
+<style>
+    .hide-scrollbar::-webkit-scrollbar { display:none; }
+    .hide-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
 
-    <style>
-        .hide-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
+    /* 明道云 iframe 修复 */
+    #settings-modal {
+        position: fixed !important;
+        z-index: 999999 !important;
+        pointer-events: auto !important;
+    }
 
-        .hide-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-    </style>
+    body {
+        pointer-events: auto !important;
+    }
+</style>
 </head>
 
 <body class="bg-gray-50 min-h-screen">
 
-    <header class="bg-white shadow-sm p-4 sticky top-0 z-10">
-        <div class="max-w-5xl mx-auto flex justify-between">
-            <h1 class="text-xl font-bold">
-                待匹配颜色：<span id="original-color" class="text-primary">加载中...</span>
-            </h1>
-        </div>
-    </header>
-
-    <main class="max-w-5xl mx-auto p-4">
-        <h2 class="text-lg font-semibold mb-3">候选颜色</h2>
-
-        <div id="candidate-box" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 hide-scrollbar">
-            <p id="loading" class="col-span-full text-center text-gray-500 py-6">正在加载候选颜色…</p>
-        </div>
-    </main>
-
-    <div class="fixed bottom-0 left-0 right-0 bg-white border-t shadow-md p-4">
-        <div class="max-w-5xl mx-auto flex justify-between">
-            <span id="status" class="text-gray-700">请选择一个颜色图片</span>
-            <button id="submit-btn" disabled class="bg-secondary text-white px-6 py-2 rounded-lg font-bold disabled:opacity-50">
-                ✓ 确认匹配
-            </button>
-        </div>
+<!-- 顶部 -->
+<header class="bg-white shadow-sm p-4 sticky top-0 z-10">
+    <div class="max-w-5xl mx-auto flex justify-between">
+        <h1 class="text-xl font-bold">
+            待匹配颜色：<span id="original-color" class="text-primary">加载中...</span>
+        </h1>
     </div>
+</header>
 
-    <script>
-        /* ＝＝＝＝＝＝＝ 固定参数写死（无需设置）＝＝＝＝＝＝＝ */
+<!-- 主体 -->
+<main class="max-w-5xl mx-auto p-4">
+    <h2 class="text-lg font-semibold mb-3">候选颜色</h2>
 
-        const FIXED_CONFIG = {
-            appKey: "681a78e1b8c72330",
-            sign: "M2NkZGZiMmM5OWIyMTUxMDQ4N2Y2YTAwZTMxNDJmM2Q3NWI5ZmU4MGU4ZDcxZjlhYWI1ZTUyOWJmNDgxYWU2OQ==",
-            worksheetId: "sjclb",
-            fetchUrl: "https://yourdomain.com/api/v2/open/worksheet/getRowByIdPost",   // ❗替换成你的真实接口
-            updateUrl: "https://yourdomain.com/api/v2/open/worksheet/editRowPost",      // ❗替换成你的真实接口
-            candidateFieldId: "69044f51be2ffd8cd20d153e",  // 候选 JSON 字段
-            colorFieldId: "6901b59fbe2ffd8cd2ab5d73"       // 回写字段
-        };
+    <div id="candidate-box" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 hide-scrollbar">
+        <p id="loading" class="col-span-full text-center text-gray-500 py-6">正在加载候选颜色…</p>
+    </div>
+</main>
 
-        /* 获取 URL 参数中的 rowId */
-        function getRowIdFromUrl() {
-            const p = new URLSearchParams(location.search);
-            return p.get("rowId");
-        }
+<!-- 底部 -->
+<div class="fixed bottom-0 left-0 right-0 bg-white border-t shadow-md p-4">
+    <div class="max-w-5xl mx-auto flex justify-between">
+        <span id="status" class="text-gray-700">请选择一个颜色图片</span>
+        <button id="submit-btn" disabled class="bg-green-400 text-white px-6 py-2 rounded-lg font-bold disabled:opacity-50">
+            ✓ 确认匹配
+        </button>
+    </div>
+</div>
 
-        /* 明道云 POST 工具 */
-        async function mdPost(url, body) {
-            const r = await fetch(url, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(body)
-            });
-            return r.json();
-        }
+<script>
+// ---------------------------
+// 固定明道云配置（全写死）
+// ---------------------------
+const CONFIG = {
+    appKey: "681a78e1b8c72330",
+    sign: "M2NkZGZiMmM5OWIyMTUxMDQ4N2Y2YTAwZTMxNDJmM2Q3NWI5ZmU4MGU4ZDcxZjlhYWI1ZTUyOWJmNDgxYWU2OQ==",
+    worksheetId: "sjclb",
 
-        let selectedColor = null;
+    // 固定字段
+    candidateFieldId: "69044f51be2ffd8cd20d153e",
+    colorFieldId: "6901b59fbe2ffd8cd2ab5d73",
 
-        /* 加载候选颜色 */
-        async function loadCandidate(rowId) {
-            const result = await mdPost(FIXED_CONFIG.fetchUrl, {
-                appKey: FIXED_CONFIG.appKey,
-                sign: FIXED_CONFIG.sign,
-                worksheetId: FIXED_CONFIG.worksheetId,
-                rowId,
-                getSystemControl: false
-            });
+    // 固定接口地址（你刚提供的）
+    fetchUrl: "https://www.dedlion.com/api/v2/open/worksheet/getRowByIdPost",
+    updateUrl: "https://www.dedlion.com/api/v2/open/worksheet/editRowPost"
+};
 
-            const loading = document.getElementById("loading");
+// ---------------------------
+// 工具函数
+// ---------------------------
 
-            if (!result.success) {
-                loading.innerText = "加载失败，请检查 API / Key / Sign";
-                return;
-            }
+// 获取 URL 中 rowId 参数
+function getRowId() {
+    return new URLSearchParams(location.search).get("rowId");
+}
 
-            const row = result.data.rows[0];
-            const raw = row[FIXED_CONFIG.candidateFieldId];
+// 明道云 POST 工具
+async function mdPost(url, body) {
+    const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+    });
+    return r.json();
+}
 
-            if (!raw) {
-                loading.innerText = "候选颜色字段为空";
-                return;
-            }
+let selectedColor = null;
 
-            let list = [];
-            try { list = JSON.parse(raw); }
-            catch { loading.innerText = "字段 JSON 格式错误"; return; }
+// ---------------------------
+// 加载候选颜色
+// ---------------------------
 
-            // 颜色去重
-            const uniq = new Map();
-            list.forEach(item => {
-                if (!uniq.has(item.color)) uniq.set(item.color, item);
-            });
+async function loadCandidate(rowId) {
+    const result = await mdPost(CONFIG.fetchUrl, {
+        appKey: CONFIG.appKey,
+        sign: CONFIG.sign,
+        worksheetId: CONFIG.worksheetId,
+        rowId: rowId,
+        getSystemControl: false
+    });
 
-            renderCandidates([...uniq.values()]);
-        }
+    const loadingEl = document.getElementById("loading");
 
-        /* 渲染候选项 */
-        function renderCandidates(list) {
-            const box = document.getElementById("candidate-box");
-            box.innerHTML = "";
+    if (!result.success) {
+        loadingEl.innerText = "加载失败，请检查 Key / Sign";
+        return;
+    }
 
-            list.forEach(item => {
-                const d = document.createElement("div");
-                d.className = "bg-white p-2 rounded shadow cursor-pointer hover:shadow-lg";
+    const row = result.data.rows[0];
+    const rawText = row[CONFIG.candidateFieldId];
 
-                d.onclick = () => chooseColor(item.color, d);
+    if (!rawText) {
+        loadingEl.innerText = "候选颜色字段为空";
+        return;
+    }
 
-                d.innerHTML = `
-                    <img src="${item.logoUrl}" class="w-full h-32 object-cover rounded">
-                    <p class="text-center mt-2 font-bold text-sm">${item.color}</p>
-                `;
+    let list = [];
+    try {
+        list = JSON.parse(rawText);
+    } catch (e) {
+        loadingEl.innerText = "候选颜色 JSON 格式错误";
+        return;
+    }
 
-                box.appendChild(d);
-            });
+    // 根据颜色去重
+    const unique = new Map();
+    list.forEach(item => {
+        if (!unique.has(item.color)) unique.set(item.color, item);
+    });
 
-            document.getElementById("loading")?.remove();
-        }
+    renderCandidates([...unique.values()]);
+}
 
-        /* 选择颜色 */
-        function chooseColor(color, el) {
-            selectedColor = color;
+// ---------------------------
+// 渲染颜色候选项
+// ---------------------------
+function renderCandidates(list) {
+    const box = document.getElementById("candidate-box");
+    box.innerHTML = "";
 
-            document.querySelectorAll("#candidate-box > div")
-                .forEach(x => x.classList.remove("border-4", "border-secondary"));
+    list.forEach(item => {
+        const d = document.createElement("div");
+        d.className = "bg-white rounded shadow hover:shadow-lg cursor-pointer p-2 border";
+        d.onclick = () => chooseColor(item.color, d);
 
-            el.classList.add("border-4", "border-secondary");
+        d.innerHTML = `
+            <img src="${item.logoUrl}" class="w-full h-32 object-cover rounded"/>
+            <p class="text-center mt-2 text-sm font-bold">${item.color}</p>
+        `;
+        box.appendChild(d);
+    });
+}
 
-            status.innerText = "已选择：" + color;
-            submit-btn.disabled = false;
-        }
+// ---------------------------
+// 选择颜色
+// ---------------------------
+function chooseColor(color, el) {
+    selectedColor = color;
 
-        /* 更新颜色到明道云 */
-        async function updateColor(rowId) {
-            const res = await mdPost(FIXED_CONFIG.updateUrl, {
-                appKey: FIXED_CONFIG.appKey,
-                sign: FIXED_CONFIG.sign,
-                worksheetId: FIXED_CONFIG.worksheetId,
-                rowId,
-                triggerWorkflow: true,
-                controls: [
-                    { controlId: FIXED_CONFIG.colorFieldId, value: selectedColor }
-                ]
-            });
+    document.querySelectorAll("#candidate-box > div")
+        .forEach(x => x.classList.remove("border-green-400", "border-4"));
 
-            if (!res.success) {
-                status.innerText = "更新失败，请检查字段 ID";
-                return;
-            }
+    el.classList.add("border-green-400", "border-4");
 
-            status.innerText = "✓ 已更新：" + selectedColor;
-            submit-btn.disabled = true;
-        }
+    document.getElementById("status").innerText = "已选择：" + color;
+    document.getElementById("submit-btn").disabled = false;
+}
 
-        /* 页面加载入口 */
-        window.onload = async () => {
-            const rowId = getRowIdFromUrl();
+// ---------------------------
+// 回写明道云
+// ---------------------------
+async function updateColor(rowId) {
+    const result = await mdPost(CONFIG.updateUrl, {
+        appKey: CONFIG.appKey,
+        sign: CONFIG.sign,
+        worksheetId: CONFIG.worksheetId,
+        rowId: rowId,
+        triggerWorkflow: true,
+        controls: [
+            { controlId: CONFIG.colorFieldId, value: selectedColor }
+        ]
+    });
 
-            if (!rowId) {
-                alert("URL 缺少 rowId 参数，例如：?rowId=xxxx");
-                return;
-            }
+    if (!result.success) {
+        document.getElementById("status").innerText = "更新失败，请检查字段配置";
+        return;
+    }
 
-            original-color.innerText = rowId;
+    document.getElementById("status").innerText = "✓ 已更新：" + selectedColor;
+}
 
-            await loadCandidate(rowId);
+// ---------------------------
+// 页面入口
+// ---------------------------
+window.onload = async () => {
+    const rowId = getRowId();
+    if (!rowId) {
+        alert("URL 缺少 rowId，例如：?rowId=行记录ID");
+        return;
+    }
 
-            submit-btn.onclick = () => updateColor(rowId);
-        };
-    </script>
+    document.getElementById("original-color").innerText = rowId;
 
+    await loadCandidate(rowId);
+
+    document.getElementById("submit-btn").onclick = () => updateColor(rowId);
+};
+
+</script>
 </body>
-
 </html>
