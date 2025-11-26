@@ -5,88 +5,167 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>图片颜色比对工作台</title>
 
+    <!-- 引入 Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
 
     <script>
         tailwind.config = {
-            theme:{
-                extend:{
-                    colors:{ primary:"#4f46e5", secondary:"#10b981" }
+            theme: {
+                extend: {
+                    colors: { 
+                        'primary': '#4f46e5', 
+                        'secondary': '#10b981',
+                        'match-bg': '#f3f4f6', /* 统一背景色 */
+                    }
                 }
             }
         };
     </script>
 
     <style>
-        .hide-scrollbar::-webkit-scrollbar { display:none; }
-        .hide-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
-
-        /* 明道云 iframe 修复 */
+        /* 隐藏滚动条但允许滚动 */
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* 修复明道云 iframe 中 z-index 可能的问题 */
         #settings-modal {
             position: fixed !important;
             z-index: 999999 !important;
             pointer-events: auto !important;
         }
-        body {
-            pointer-events: auto !important;
-        }
     </style>
 </head>
 
-<body class="bg-gray-50 min-h-screen">
+<body class="bg-match-bg min-h-screen font-sans antialiased">
 
-<header class="bg-white shadow-sm p-4 sticky top-0 z-10">
-    <div class="max-w-5xl mx-auto flex justify-between">
-        <h1 class="text-xl font-bold">
-            待匹配颜色：
-            <span id="original-color" class="text-primary">加载中...</span>
+<!-- 顶栏：显示当前记录 ID -->
+<header class="bg-white shadow-sm p-4 sticky top-0 z-10 border-b border-primary/20">
+    <div class="max-w-5xl mx-auto flex justify-between items-center">
+        <h1 class="text-xl font-bold text-gray-800">
+            当前记录 ID：
+            <span id="original-color-display" class="text-primary font-extrabold">加载中...</span>
         </h1>
     </div>
 </header>
 
-<main class="max-w-5xl mx-auto p-4">
-    <h2 class="text-lg font-semibold mb-3">候选颜色</h2>
+<main class="max-w-5xl mx-auto p-4 md:p-6">
 
-    <div id="candidate-box" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 hide-scrollbar">
-        <p id="loading" class="col-span-full text-center text-gray-500 py-6">
-            正在加载候选颜色…
-        </p>
+    <!-- 新增：配置输入卡片 (当 URL 缺少 rowId 时显示) -->
+    <div id="config-card" class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mb-6 hidden">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">手动配置匹配任务</h2>
+        <p class="text-gray-500 mb-6">请在下方输入明道云记录 ID。</p>
+
+        <div class="space-y-4">
+            <!-- 记录 ID 输入 -->
+            <div>
+                <label for="manual-row-id" class="block text-sm font-medium text-gray-700 mb-1">记录 ID (rowId)</label>
+                <input type="text" id="manual-row-id" 
+                       placeholder="例如: 86c67b9e-cdfd-48f7-970a-06ee6ea270e2"
+                       class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary transition" />
+            </div>
+        </div>
+        
+        <button id="start-btn"
+                class="mt-6 w-full py-3 px-8 bg-primary text-white font-bold rounded-lg shadow-md hover:bg-indigo-700 transition duration-150">
+            ▶ 开始加载并匹配
+        </button>
+
+        <p id="config-status" class="mt-4 text-center text-sm text-red-500 hidden"></p>
+    </div>
+    <!-- 结束：配置输入卡片 -->
+
+
+    <!-- 匹配内容区 (仅当有 rowId 时显示) -->
+    <div id="matching-content" class="hidden">
+        <h2 class="text-xl font-semibold mb-4 text-gray-800">候选集图片（已按颜色去重）</h2>
+
+        <div id="candidate-box" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 hide-scrollbar">
+            <p id="loading" class="col-span-full text-center text-gray-500 py-6">
+                正在加载候选颜色…
+            </p>
+        </div>
     </div>
 </main>
 
-<div class="fixed bottom-0 left-0 right-0 bg-white border-t shadow-md p-4">
-    <div class="max-w-5xl mx-auto flex justify-between">
-        <span id="status" class="text-gray-700">请选择一个颜色图片</span>
+<!-- 操作区：浮动在底部 (仅当有 rowId 时显示) -->
+<div id="footer-bar" class="fixed bottom-0 left-0 right-0 bg-white border-t shadow-2xl p-4 z-20 hidden">
+    <div class="max-w-5xl mx-auto flex justify-between items-center">
+        <span id="status-message" class="text-base font-medium text-gray-700">请选择一个颜色图片</span>
         <button id="submit-btn"
                 disabled
-                class="bg-secondary text-white px-6 py-2 rounded-lg font-bold disabled:opacity-50">
-            ✓ 确认匹配
+                class="py-3 px-8 bg-secondary text-white font-bold rounded-lg shadow-md hover:bg-emerald-600 disabled:opacity-50 transition duration-150 transform hover:scale-[1.02]">
+            ✓ 确认匹配并传回明道云
         </button>
     </div>
 </div>
 
 <script>
 
-/* ============= 配置全部写死 ============= */
+/* * ========================================================== 
+ * ⚠️ 警告：请注意硬编码 AppKey 和 Sign 的安全风险！
+ * * 🛠️ 排查数据未加载：
+ * 1. 确保 CONFIG 中所有字段 ID、worksheetId、appKey 和 sign 都正确无误。
+ * 2. 确保您输入的记录 ID (rowId) 是有效的。
+ * ========================================================== 
+ */
 const CONFIG = {
-    appKey: "681a78e1b8c72330",
-    sign: "M2NkZGZiMmM5OWIyMTUxMDQ4N2Y2YTAwZTMxNDJmM2Q3NWI5ZmU4MGU4ZDcxZjlhYWI1ZTUyOWJmNDgxYWU2OQ==",
+    // 您的明道云 AppKey
+    appKey: "681a78e1b8c72330", 
+    // 您的签名。注意：硬编码签名通常用于测试环境，生产环境应通过服务器计算。
+    sign: "M2NkZGZiMmM5OWIyMTUxMDQ4N2Y2YTAwZTMxNDJmM2Q3NWI5ZmU4MGU4ZDcxZjlhYWI1ZTUyOWJmNDgxYWU2OQ==", 
+    // 表单ID
     worksheetId: "sjclb",
 
+    // 获取记录 API URL
     fetchUrl: "https://www.dedlion.com/api/v2/open/worksheet/getRowByIdPost",
+    // 更新记录 API URL
     updateUrl: "https://www.dedlion.com/api/v2/open/worksheet/editRowPost",
 
+    // 存储候选集 JSON 数组的字段 ID
     candidateFieldId: "69044f51be2ffd8cd20d153e",
-    colorFieldId: "6901b59fbe2ffd8cd2ab5d73"
+    // 存储匹配结果（颜色名）的字段 ID
+    colorFieldId: "6901b59fbe2ffd8cd2ab5d73",
+    
+    // (可选) 额外的字段用于传递图片 URL、SKU 等。
+    // matchedImageFieldId: "您图片附件字段的ID"
+    // matchedSkuFieldId: "您匹配SKU字段的ID"
 };
 
-/* ============= URL 获取 rowId ============= */
-function getRowId(){
+// 缓存DOM元素，避免隐式全局变量和重复查找
+const dom = {
+    originalColorDisplay: document.getElementById('original-color-display'),
+    candidateBox: document.getElementById('candidate-box'),
+    loading: document.getElementById('loading'),
+    submitBtn: document.getElementById('submit-btn'),
+    statusMessage: document.getElementById('status-message'),
+    
+    // 新增 DOM 元素
+    configCard: document.getElementById('config-card'),
+    matchingContent: document.getElementById('matching-content'),
+    footerBar: document.getElementById('footer-bar'),
+    manualRowId: document.getElementById('manual-row-id'),
+    startButton: document.getElementById('start-btn'),
+    configStatus: document.getElementById('config-status'),
+};
+
+let selectedColor = null;
+let isProcessing = false; // 防止重复点击
+let activeRowId = null; // 存储当前正在处理的 rowId
+
+/* ============= URL 参数获取 ============= */
+
+/**
+ * 从 URL 参数中获取当前记录 ID (rowId)
+ */
+function getUrlParams(){
     const p = new URLSearchParams(location.search);
-    return p.get("rowId");
+    return {
+        // 明道云标准参数名为 rowid，这里兼容用户提供的 rowId
+        rowId: p.get("rowId"), 
+    };
 }
 
-/* ============= 明道云 POST ============= */
+/* ============= 明道云 POST 通用函数 ============= */
 async function mdPost(url, body){
     const r = await fetch(url,{
         method:"POST",
@@ -96,124 +175,256 @@ async function mdPost(url, body){
     return r.json();
 }
 
-let selectedColor = null;
+/* ============= 启动加载逻辑（接受手动输入或 URL 参数） ============= */
+async function startMatchingProcess(rowId) {
+    activeRowId = rowId;
+    // 顶部标题显示当前记录 ID
+    dom.originalColorDisplay.innerText = rowId; 
+    
+    // 隐藏配置卡片，显示匹配内容和底部栏
+    dom.configCard.classList.add('hidden');
+    dom.matchingContent.classList.remove('hidden');
+    dom.footerBar.classList.remove('hidden');
+
+    // 清空状态
+    dom.statusMessage.innerText = "正在加载候选颜色…";
+    dom.submitBtn.disabled = true;
+
+    // 载入候选数据
+    await loadCandidate(rowId);
+
+    // 绑定提交按钮事件（确保只绑定一次）
+    dom.submitBtn.onclick = () => updateColor(rowId);
+}
+
+/* ============= 手动启动处理函数 ============= */
+function handleManualStart() {
+    const rowId = dom.manualRowId.value.trim();
+
+    if (!rowId) {
+        dom.configStatus.classList.remove('hidden');
+        dom.configStatus.innerText = '错误：记录 ID 不能为空。';
+        return;
+    }
+    
+    dom.configStatus.classList.add('hidden');
+    dom.configStatus.innerText = '';
+    
+    // 清除加载区的旧数据
+    dom.candidateBox.innerHTML = '<p id="loading" class="col-span-full text-center text-gray-500 py-6">正在加载候选颜色…</p>';
+    // 更新 dom.loading 引用，以便 loadCandidate 可以找到它
+    dom.loading = document.getElementById('loading'); 
+
+    startMatchingProcess(rowId); // 只传递 rowId
+}
+
 
 /* ============= 载入候选颜色数据 ============= */
 async function loadCandidate(rowId){
-    const result = await mdPost(CONFIG.fetchUrl,{
-        appKey: CONFIG.appKey,
-        sign: CONFIG.sign,
-        worksheetId: CONFIG.worksheetId,
-        rowId,
-        getSystemControl: false
-    });
+    dom.loading.innerText = "正在通过 API 加载记录...";
 
-    const loading = document.getElementById("loading");
+    try {
+        const result = await mdPost(CONFIG.fetchUrl,{
+            appKey: CONFIG.appKey,
+            sign: CONFIG.sign,
+            worksheetId: CONFIG.worksheetId,
+            rowId: rowId, // 使用 rowId
+            getSystemControl: false
+        });
 
-    if(!result.success){
-        loading.innerText = "加载失败，请检查配置或字段";
-        return;
-    }
-
-    const row = result.data.rows[0];
-    const raw = row[CONFIG.candidateFieldId];
-
-    if(!raw){
-        loading.innerText = "候选字段为空";
-        return;
-    }
-
-    let list = [];
-    try{
-        list = JSON.parse(raw);
-    }catch(e){
-        loading.innerText = "候选字段 JSON 格式错误";
-        return;
-    }
-
-    /* color 去重 */
-    const unique = new Map();
-    list.forEach(item => {
-        if(!unique.has(item.color)){
-            unique.set(item.color, item);
+        if(!result.success){
+            // API 报告失败（例如：签名错误、权限不足）
+            dom.loading.innerHTML = `<span class="text-red-500">API 报告失败，请检查 AppKey/Sign/权限。错误码: ${result.error_code || '未知'}</span>`;
+            dom.statusMessage.innerText = `加载失败，请检查 API 配置。`;
+            return;
         }
-    });
 
-    renderCandidates([...unique.values()]);
+        // 增强检查：确保 rows 数组存在且不为空
+        const rows = result.data?.rows;
+        if (!rows || rows.length === 0) {
+            dom.loading.innerHTML = `<span class="text-red-500">加载失败：未找到记录 ID (${rowId})，或数据结构异常。请检查 ID 是否有效。</span>`;
+            dom.statusMessage.innerText = `加载失败：记录 ID 无效或权限不足。`;
+            return;
+        }
+
+        const row = rows[0];
+        const raw = row[CONFIG.candidateFieldId];
+
+        if(!raw){
+            dom.loading.innerText = "候选字段数据为空，请检查字段配置。";
+            dom.statusMessage.innerText = "请检查候选字段数据。";
+            return;
+        }
+
+        let list = [];
+        try{
+            list = JSON.parse(raw);
+        }catch(e){
+            dom.loading.innerHTML = `<span class="text-red-500">候选字段 JSON 格式错误: ${e.message}</span>`;
+            dom.statusMessage.innerText = "候选字段 JSON 格式错误。";
+            return;
+        }
+
+        /* color 去重 */
+        const unique = new Map();
+        list.forEach(item => {
+            // 确保颜色和图片URL都存在才算有效候选
+            if(item.color && item.logoUrl && !unique.has(item.color)){
+                // item 包含了 sku, logoUrl, color 等信息
+                unique.set(item.color, item);
+            }
+        });
+        
+        // 如果候选集为空
+        if (unique.size === 0) {
+            dom.loading.innerText = "未找到有效的候选图片，请检查 JSON 数据结构。";
+            dom.statusMessage.innerText = "未找到有效候选集。";
+            return;
+        }
+
+        // 确保dom.loading存在，避免错误
+        if (dom.loading && dom.loading.parentNode) {
+            dom.loading.remove(); // 移除加载提示
+        }
+        renderCandidates([...unique.values()]);
+
+    } catch (e) {
+        // 网络请求本身失败（例如 CORS 阻止或服务器无法连接）
+        dom.loading.innerHTML = `<span class="text-red-500">网络请求异常，请检查网络连接或 CORS 设置：${e.message}</span>`;
+        dom.statusMessage.innerText = "网络请求失败。";
+    }
 }
 
 /* ============= 渲染颜色卡片 ============= */
 function renderCandidates(list){
-    const box = document.getElementById("candidate-box");
-    box.innerHTML = "";
+    dom.candidateBox.innerHTML = "";
 
     list.forEach(item => {
         const d = document.createElement("div");
         d.className =
-            "bg-white rounded shadow hover:shadow-lg cursor-pointer p-2 border";
-        d.onclick = () => chooseColor(item.color, d);
+            "bg-white rounded-xl shadow-md border-4 border-gray-200 cursor-pointer p-2 transition transform hover:scale-[1.02] active:scale-[0.98]";
+        d.onclick = () => chooseColor(item, d);
 
         d.innerHTML = `
-            <img src="${item.logoUrl}" class="w-full h-32 object-cover rounded">
-            <p class="text-center mt-2 text-sm font-bold">${item.color}</p>
+            <img src="${item.logoUrl}" 
+                 onerror="this.src='https://placehold.co/200x250/AAAAAA/FFFFFF?text=图片缺失'"
+                 alt="${item.color}"
+                 class="w-full h-32 object-cover rounded-lg">
+            <p class="text-center mt-2 text-sm font-bold truncate" title="${item.color}">${item.color}</p>
         `;
-        box.appendChild(d);
+        dom.candidateBox.appendChild(d);
     });
 
-    document.getElementById("loading")?.remove();
+    dom.statusMessage.innerText = "请选择一个颜色图片进行匹配";
 }
 
 /* ============= 选择颜色 ============= */
-function chooseColor(color, el){
-    selectedColor = color;
+function chooseColor(item, el){
+    // item 是包含 color, sku, logoUrl 的完整对象
+    selectedColor = item;
 
+    // 清除之前的选中样式
     document.querySelectorAll("#candidate-box > div")
-        .forEach(x => x.classList.remove("border-secondary","border-4"));
+        .forEach(x => x.classList.remove("border-secondary","ring-4", "ring-secondary/50"));
 
-    el.classList.add("border-secondary","border-4");
-    status.innerText = "已选择：" + color;
-    submitBtn.disabled = false;
+    // 应用新的选中样式
+    el.classList.add("border-secondary","ring-4", "ring-secondary/50");
+    dom.statusMessage.innerText = "已选择：" + item.color + " (SKU: " + (item.dwSkuId || item.sku || 'N/A') + ")";
+    dom.submitBtn.disabled = false;
 }
 
 /* ============= 更新颜色到明道云 ============= */
 async function updateColor(rowId){
-    const res = await mdPost(CONFIG.updateUrl,{
-        appKey: CONFIG.appKey,
-        sign: CONFIG.sign,
-        worksheetId: CONFIG.worksheetId,
-        rowId,
-        triggerWorkflow: true,
-        controls:[
-            {
-                controlId: CONFIG.colorFieldId,
-                value: selectedColor
-            }
-        ]
-    });
+    if (!selectedColor || isProcessing) return;
 
-    if(!res.success){
-        status.innerText = "更新失败，请检查字段权限";
-        return;
+    isProcessing = true;
+    dom.submitBtn.textContent = '传输中...';
+    dom.submitBtn.disabled = true;
+    dom.statusMessage.innerText = "正在调用明道云 API 更新记录...";
+
+    try {
+        const controlsPayload = [];
+        
+        // 1. 写入颜色名到目标字段
+        controlsPayload.push({
+            controlId: CONFIG.colorFieldId,
+            value: selectedColor.color
+        });
+        
+        // 【可选改进】如果需要回传图片附件字段，可以在此处添加
+        // if (CONFIG.matchedImageFieldId && selectedColor.logoUrl) {
+        //     const urlParts = selectedColor.logoUrl.split('/');
+        //     const fileName = urlParts[urlParts.length - 1].split('?')[0];
+        //     controlsPayload.push({
+        //         controlId: CONFIG.matchedImageFieldId,
+        //         value: JSON.stringify([{ "previewUrl": selectedColor.logoUrl, "name": fileName }]) 
+        //     });
+        // }
+
+
+        const res = await mdPost(CONFIG.updateUrl,{
+            appKey: CONFIG.appKey,
+            sign: CONFIG.sign,
+            worksheetId: CONFIG.worksheetId,
+            rowId: rowId, // 使用 rowId
+            triggerWorkflow: true,
+            controls: controlsPayload
+        });
+
+        if(!res.success){
+            dom.statusMessage.innerHTML = `<span class="text-red-500">更新失败，请检查字段权限。错误信息: ${res.error_msg || '未知错误'}</span>`;
+            // 失败后允许重新尝试
+            dom.submitBtn.textContent = '更新失败，点击重试';
+            dom.submitBtn.disabled = false;
+            isProcessing = false;
+            return;
+        }
+
+        dom.statusMessage.innerText = "✓ 记录已成功更新：" + selectedColor.color;
+        dom.submitBtn.textContent = '✓ 已完成';
+        dom.submitBtn.classList.remove('bg-secondary');
+        dom.submitBtn.classList.add('bg-gray-400'); // 完成后变灰
+        
+        // 成功后也可以通知父窗口（明道云）
+        window.parent.postMessage({
+            type: 'IMAGE_MATCH_SUCCESS', 
+            payload: { rowId: rowId, matchedColor: selectedColor.color }
+        }, '*'); 
+
+    } catch (e) {
+        dom.statusMessage.innerHTML = `<span class="text-red-500">更新请求失败：${e.message}</span>`;
+        dom.submitBtn.textContent = '更新失败，点击重试';
+        dom.submitBtn.disabled = false;
+        isProcessing = false;
     }
 
-    status.innerText = "✓ 已写入：" + selectedColor;
-    submitBtn.disabled = true;
+    isProcessing = false;
 }
 
 /* ============= 页面启动入口 ============= */
 window.onload = async () => {
+    const params = getUrlParams();
+    const rowId = params.rowId;
 
-    const rowId = getRowId();
-    if(!rowId){
-        alert("URL 缺少 rowId 参数：?rowId=记录ID");
-        return;
+    if(rowId){
+        // 1. URL 中存在 rowId，直接开始匹配流程
+        startMatchingProcess(rowId);
+    } else {
+        // 2. URL 中缺少 rowId，显示配置输入卡片
+        dom.originalColorDisplay.innerText = '请配置任务';
+        dom.configCard.classList.remove('hidden');
+        dom.matchingContent.classList.add('hidden');
+        dom.footerBar.classList.add('hidden');
+        dom.statusMessage.innerText = '等待输入任务信息...';
+
+        // 绑定手动启动按钮
+        dom.startButton.onclick = handleManualStart;
+        
+        // 允许用户按回车键启动
+        dom.manualRowId.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleManualStart();
+        });
     }
-
-    originalColor.innerText = rowId;
-
-    await loadCandidate(rowId);
-
-    submitBtn.onclick = () => updateColor(rowId);
 };
 
 </script>
