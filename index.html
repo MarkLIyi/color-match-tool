@@ -8,12 +8,30 @@
     <script src="https://cdn.tailwindcss.com"></script>
 
     <script>
-        tailwind.config = { theme:{ extend:{ colors:{ primary:"#4f46e5", secondary:"#10b981" }}}};
+        tailwind.config = { 
+            theme:{ 
+                extend:{ 
+                    colors:{ primary:"#4f46e5", secondary:"#10b981" }
+                }
+            }
+        };
     </script>
 
     <style>
         .hide-scrollbar::-webkit-scrollbar { display:none; }
         .hide-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
+
+        /* 修复明道云 iframe 导致弹窗无法点击 */
+        #settings-modal {
+            position: fixed !important;
+            z-index: 999999 !important;
+            pointer-events: auto !important;
+        }
+
+        /* 强制允许点击（明道云 iframe 会阻断 pointer-events） */
+        body {
+            pointer-events: auto !important;
+        }
     </style>
 </head>
 
@@ -41,6 +59,7 @@
     </div>
 </div>
 
+<!-- 设置弹窗 -->
 <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-lg">
         <h3 class="text-xl font-bold mb-4">API 配置</h3>
@@ -80,10 +99,30 @@
     </div>
 </div>
 
-
 <script>
+/* iframe 自动修复补丁：明道云中必须执行 */
+if (window !== window.parent) {
+    console.log("Running inside Mingdao iframe");
+
+    document.body.style.pointerEvents = "auto";
+
+    const fix = () => {
+        const modal = document.getElementById("settings-modal");
+        if (modal) {
+            modal.style.zIndex = "999999";
+            modal.style.pointerEvents = "auto";
+            modal.style.position = "fixed";
+        }
+    };
+
+    new MutationObserver(fix).observe(document.body, { childList: true, subtree: true });
+    fix();
+}
+
+/* 本地配置读取工具 */
 const LS = key => localStorage.getItem(key) || "";
 
+/* 保存设置 */
 function saveConfig(){
     localStorage.setItem("appKey", cfg-appKey.value.trim());
     localStorage.setItem("sign", cfg-sign.value.trim());
@@ -96,6 +135,7 @@ function saveConfig(){
     closeSettings();
 }
 
+/* 加载设置到界面 */
 function loadConfigToUI(){
     cfg-appKey.value = LS("appKey");
     cfg-sign.value = LS("sign");
@@ -106,91 +146,145 @@ function loadConfigToUI(){
     cfg-updateUrl.value = LS("updateUrl");
 }
 
-open-settings.onclick = ()=>{ settings-modal.classList.remove("hidden");settings-modal.classList.add("flex"); loadConfigToUI(); };
-close-settings.onclick = ()=>{ settings-modal.classList.add("hidden");settings-modal.classList.remove("flex"); };
-save-settings.onclick = saveConfig;
+open-settings.onclick = ()=>{
+    settings-modal.classList.remove("hidden");
+    settings-modal.classList.add("flex");
+    loadConfigToUI();
+};
 
+close-settings.onclick = ()=>{
+    settings-modal.classList.add("hidden");
+    settings-modal.classList.remove("flex");
+};
+
+/* 获取 URL 参数中的 rowId */
 function getRowIdFromUrl(){
-    const p=new URLSearchParams(location.search);
+    const p = new URLSearchParams(location.search);
     return p.get("rowId");
 }
 
+/* 明道云 POST 工具 */
 async function mdPost(url, body){
-    const r = await fetch(url,{method:"POST",headers:{ "Content-Type":"application/json"},body:JSON.stringify(body)});
+    const r = await fetch(url,{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify(body)
+    });
     return r.json();
 }
 
-let selectedColor=null;
+let selectedColor = null;
 
+/* 加载候选颜色数据 */
 async function loadCandidate(rowId){
     const result = await mdPost(LS("fetchUrl"),{
-        appKey:LS("appKey"), sign:LS("sign"), worksheetId:LS("worksheetId"),
-        rowId, getSystemControl:false
+        appKey: LS("appKey"),
+        sign: LS("sign"),
+        worksheetId: LS("worksheetId"),
+        rowId,
+        getSystemControl: false
     });
 
-    const loading=document.getElementById("loading");
+    const loading = document.getElementById("loading");
 
-    if(!result.success){ loading.innerText="加载失败"; return; }
+    if(!result.success){
+        loading.innerText = "加载失败，请检查 Key / Sign";
+        return;
+    }
 
     const row = result.data.rows[0];
     const raw = row[LS("candidateFieldId")];
-    if(!raw){ loading.innerText="没有候选数据";return;}
 
-    let list=[];
-    try{ list=JSON.parse(raw); }catch{ loading.innerText="JSON格式错误"; return;}
+    if(!raw){
+        loading.innerText = "候选颜色字段为空";
+        return;
+    }
 
+    let list = [];
+    try{
+        list = JSON.parse(raw);
+    }catch{
+        loading.innerText = "候选字段 JSON 格式错误";
+        return;
+    }
+
+    /* 根据颜色去重 */
     const unique = new Map();
-    list.forEach(i=>{ if(!unique.has(i.color)) unique.set(i.color, i); });
+    list.forEach(item => {
+        if(!unique.has(item.color)) unique.set(item.color, item);
+    });
 
     renderCandidates([...unique.values()]);
 }
 
+/* 渲染颜色候选项 */
 function renderCandidates(list){
-    const box=document.getElementById("candidate-box");
-    box.innerHTML="";
+    const box = document.getElementById("candidate-box");
+    box.innerHTML = "";
 
-    list.forEach(item=>{
-        const d=document.createElement("div");
-        d.className="bg-white rounded shadow hover:shadow-lg cursor-pointer p-2 border";
-        d.onclick=()=> chooseColor(item.color,d);
+    list.forEach(item => {
+        const d = document.createElement("div");
+        d.className = "bg-white rounded shadow hover:shadow-lg cursor-pointer p-2 border";
+        d.onclick = () => chooseColor(item.color, d);
 
-        d.innerHTML=`
+        d.innerHTML = `
             <img src="${item.logoUrl}" class="w-full h-32 object-cover rounded">
             <p class="text-center mt-2 text-sm font-bold">${item.color}</p>
         `;
-
         box.appendChild(d);
     });
 
     document.getElementById("loading")?.remove();
 }
 
+/* 选择颜色 */
 function chooseColor(color, el){
     selectedColor = color;
-    document.querySelectorAll("#candidate-box > div").forEach(x=>x.classList.remove("border-secondary","border-4"));
+
+    document.querySelectorAll("#candidate-box > div")
+        .forEach(x => x.classList.remove("border-secondary","border-4"));
+
     el.classList.add("border-secondary","border-4");
-    status.innerText="已选择：" + color;
-    submit-btn.disabled=false;
+    status.innerText = "已选择：" + color;
+    submit-btn.disabled = false;
 }
 
+/* 回写颜色到明道云 */
 async function updateColor(rowId){
     const res = await mdPost(LS("updateUrl"),{
-        appKey:LS("appKey"), sign:LS("sign"), worksheetId:LS("worksheetId"),
-        rowId, triggerWorkflow:true,
-        controls:[{ controlId:LS("colorFieldId"), value:selectedColor }]
+        appKey: LS("appKey"),
+        sign: LS("sign"),
+        worksheetId: LS("worksheetId"),
+        rowId,
+        triggerWorkflow: true,
+        controls: [
+            { controlId: LS("colorFieldId"), value: selectedColor }
+        ]
     });
 
-    if(!res.success){ status.innerText="更新失败"; return; }
-    status.innerText="✓ 已更新：" + selectedColor;
-    submit-btn.disabled=true;
+    if(!res.success){
+        status.innerText = "更新失败，请检查字段配置";
+        return;
+    }
+
+    status.innerText = "✓ 已更新：" + selectedColor;
+    submit-btn.disabled = true;
 }
 
+/* 页面加载入口 */
 window.onload = async ()=>{
     const rowId = getRowIdFromUrl();
-    if(!rowId){ alert("URL 缺少 rowId 参数"); return;}
-    original-color.innerText=rowId;
+
+    if(!rowId){
+        alert("URL 缺少 rowId 参数，请使用：?rowId=记录ID");
+        return;
+    }
+
+    original-color.innerText = rowId;
+
     await loadCandidate(rowId);
-    submit-btn.onclick = ()=> updateColor(rowId);
+
+    submit-btn.onclick = () => updateColor(rowId);
 };
 </script>
 
